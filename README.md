@@ -82,7 +82,14 @@ make distclean
 4.Загрузка конфигурации для Antminer S9:
 
 ```
+# 1. Скачиваем репозиторий во временную папку
+git clone git@github.com:alexsys87/Antminer_S9_OpenWRT_23.05.git /tmp/s9_files
 
+# 2. Копируем все файлы с заменой в вашу папку OpenWRT
+cp -r /tmp/s9_files/* ~/Openwrt_23.05/
+
+# 3. Удаляем временную папку
+rm -rf /tmp/s9_files
 ```
 
 5.Конфигурация сборки:
@@ -103,14 +110,6 @@ make toolchain/install -j$(nproc) V=s
 
 ```
 make -j$(nproc) V=s
-```
-
-Установка в nand
-
-Выполнете в консоле Antminer S9
-
-```
-nand_install
 ```
 
 
