@@ -1,0 +1,41 @@
+From: OpenWrt zynq/s9
+Subject: mtd: rawnand: pl35x: advertise subpage read/write for on-die ECC
+ chips
+
+Chips using NAND_ECC_ENGINE_TYPE_ON_DIE are capable of subpage reads,
+and generally of subpage writes too, but the driver never set the
+NAND core capability flags for it, so the core always fell back to
+full-page accesses. Set NAND_SUBPAGE_READ and clear
+NAND_NO_SUBPAGE_WRITE for on-die ECC chips, matching how the core
+already lets per-controller drivers opt in to subpage access.
+
+This depends on the paired nand_micron.c patch that actually
+implements chip->ecc.read_subpage/write_subpage for Micron on-die ECC
+parts; without it the new capability flags are set but unused.
+
+--- a/drivers/mtd/nand/raw/pl35x-nand-controller.c
++++ b/drivers/mtd/nand/raw/pl35x-nand-controller.c
+@@ -938,6 +938,15 @@
+ 	return ret;
+ }
+ 
++static void pl35x_nand_setup_ondie_ecc(struct nand_chip *chip)
++{
++	/* NAND with on-die ECC supports subpage reads */
++	chip->options |= NAND_SUBPAGE_READ;
++
++	/* NAND with on-die ECC may support subpage writes */
++	chip->options &= ~(NAND_NO_SUBPAGE_WRITE);
++}
++
+ static int pl35x_nand_attach_chip(struct nand_chip *chip)
+ {
+ 	const struct nand_ecc_props *requirements =
+@@ -972,6 +981,7 @@
+ 
+ 	switch (chip->ecc.engine_type) {
+ 	case NAND_ECC_ENGINE_TYPE_ON_DIE:
++		pl35x_nand_setup_ondie_ecc(chip);
+ 		/* Keep these legacy BBT descriptors for ON_DIE situations */
+ 		chip->bbt_td = &bbt_main_descr;
+ 		chip->bbt_md = &bbt_mirror_descr;

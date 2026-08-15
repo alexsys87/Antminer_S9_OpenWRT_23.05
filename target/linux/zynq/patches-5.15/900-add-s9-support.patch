@@ -1,0 +1,870 @@
+--- /dev/null
++++ b/arch/arm/boot/dts/zynq-s9.dts
+@@ -0,0 +1,867 @@
++/dts-v1/;
++
++/ {
++	#address-cells = <0x1>;
++	#size-cells = <0x1>;
++	compatible = "xlnx,zynq-7000";
++
++	cpus {
++		#address-cells = <0x1>;
++		#size-cells = <0x0>;
++
++		cpu0: cpu@0 {
++			compatible = "arm,cortex-a9";
++			device_type = "cpu";
++			reg = <0x0>;
++			clocks = <&clkc 0x3>;
++			clock-latency = <0x3e8>;
++			cpu0-supply = <&regulator_vccpint>;
++			operating-points = <0xa2c2a 0xf4240 0x51615 0xf4240>;
++		};
++
++		cpu1: cpu@1 {
++			compatible = "arm,cortex-a9";
++			device_type = "cpu";
++			reg = <0x1>;
++			clocks = <&clkc 0x3>;
++		};
++	};
++
++	fpga_full: fpga-full {
++		compatible = "fpga-region";
++		fpga-mgr = <&devcfg>;
++		#address-cells = <0x1>;
++		#size-cells = <0x1>;
++		ranges;
++	};
++
++	pmu@f8891000 {
++		compatible = "arm,cortex-a9-pmu";
++		interrupts = <0x0 0x5 0x4 0x0 0x6 0x4>;
++		interrupt-parent = <&intc>;
++		reg = <0xf8891000 0x1000 0xf8893000 0x1000>;
++	};
++
++	regulator_vccpint: fixedregulator {
++		compatible = "regulator-fixed";
++		regulator-name = "VCCPINT";
++		regulator-min-microvolt = <0xf4240>;
++		regulator-max-microvolt = <0xf4240>;
++		regulator-boot-on;
++		regulator-always-on;
++	};
++
++	replicator {
++		compatible = "arm,coresight-static-replicator";
++		clocks = <&clkc 0x1b &clkc 0x2e &clkc 0x2f>;
++		clock-names = "apb_pclk", "dbg_trc", "dbg_apb";
++
++		out-ports {
++			#address-cells = <0x1>;
++			#size-cells = <0x0>;
++
++			port@0 {
++				reg = <0x0>;
++
++				replicator_out_port0: endpoint {
++					remote-endpoint = <&tpiu_in_port>;
++				};
++			};
++
++			port@1 {
++				reg = <0x1>;
++
++				replicator_out_port1: endpoint {
++					remote-endpoint = <&etb_in_port>;
++				};
++			};
++		};
++
++		in-ports {
++
++			port {
++
++				replicator_in_port0: endpoint {
++					remote-endpoint = <&funnel_out_port>;
++				};
++			};
++		};
++	};
++
++	axi: axi {
++		u-boot,dm-pre-reloc;
++		compatible = "simple-bus";
++		#address-cells = <0x1>;
++		#size-cells = <0x1>;
++		interrupt-parent = <&intc>;
++		ranges;
++
++		adc: adc@f8007100 {
++			compatible = "xlnx,zynq-xadc-1.00.a";
++			reg = <0xf8007100 0x20>;
++			interrupts = <0x0 0x7 0x4>;
++			interrupt-parent = <&intc>;
++			clocks = <&clkc 0xc>;
++		};
++
++		can0: can@e0008000 {
++			compatible = "xlnx,zynq-can-1.0";
++			status = "disabled";
++			clocks = <&clkc 0x13 &clkc 0x24>;
++			clock-names = "can_clk", "pclk";
++			reg = <0xe0008000 0x1000>;
++			interrupts = <0x0 0x1c 0x4>;
++			interrupt-parent = <&intc>;
++			tx-fifo-depth = <0x40>;
++			rx-fifo-depth = <0x40>;
++		};
++
++		can1: can@e0009000 {
++			compatible = "xlnx,zynq-can-1.0";
++			status = "disabled";
++			clocks = <&clkc 0x14 &clkc 0x25>;
++			clock-names = "can_clk", "pclk";
++			reg = <0xe0009000 0x1000>;
++			interrupts = <0x0 0x33 0x4>;
++			interrupt-parent = <&intc>;
++			tx-fifo-depth = <0x40>;
++			rx-fifo-depth = <0x40>;
++		};
++
++		gpio0: gpio@e000a000 {
++			compatible = "xlnx,zynq-gpio-1.0";
++			#gpio-cells = <0x2>;
++			clocks = <&clkc 0x2a>;
++			gpio-controller;
++			interrupt-controller;
++			#interrupt-cells = <0x2>;
++			interrupt-parent = <&intc>;
++			interrupts = <0x0 0x14 0x4>;
++			reg = <0xe000a000 0x1000>;
++			emio-gpio-width = <0x40>;
++			gpio-mask-high = <0x0>;
++			gpio-mask-low = <0x5600>;
++		};
++
++		i2c0: i2c@e0004000 {
++			compatible = "cdns,i2c-r1p10";
++			status = "okay";                 /* было "disabled" — включаем */
++			clocks = <&clkc 0x26>;
++			interrupt-parent = <&intc>;
++			interrupts = <0x0 0x19 0x4>;
++			reg = <0xe0004000 0x1000>;
++			#address-cells = <0x1>;
++			#size-cells = <0x0>;
++			clock-frequency = <400000>;      /* добавляем Fast-mode */
++		};
++
++		i2c1: i2c@e0005000 {
++			compatible = "cdns,i2c-r1p10";
++			status = "okay";                 /* включаем шину I2C1 */
++			clocks = <&clkc 0x27>;
++			interrupt-parent = <&intc>;
++			interrupts = <0x0 0x30 0x4>;
++			reg = <0xe0005000 0x1000>;
++			#address-cells = <0x1>;
++			#size-cells = <0x0>;
++			clock-frequency = <400000>;      /* добавляем скорость Fast-mode для I2C1 */
++
++			/* Переносим радиомодуль сюда, на шину I2C1 */
++			rda5807: radio@11 {
++				compatible = "rda,rda5807";
++				reg = <0x11>;
++			};
++		};
++
++		intc: interrupt-controller@f8f01000 {
++			compatible = "arm,cortex-a9-gic";
++			#interrupt-cells = <0x3>;
++			interrupt-controller;
++			reg = <0xf8f01000 0x1000 0xf8f00100 0x100>;
++			num_cpus = <0x2>;
++			num_interrupts = <0x60>;
++		};
++
++		L2: cache-controller@f8f02000 {
++			compatible = "arm,pl310-cache";
++			reg = <0xf8f02000 0x1000>;
++			interrupts = <0x0 0x2 0x4>;
++			arm,data-latency = <0x3 0x2 0x2>;
++			arm,tag-latency = <0x2 0x2 0x2>;
++			cache-unified;
++			cache-level = <0x2>;
++		};
++
++		mc: memory-controller@f8006000 {
++			compatible = "xlnx,zynq-ddrc-a05";
++			reg = <0xf8006000 0x1000>;
++		};
++
++		ocm: sram@fffc0000 {
++			compatible = "mmio-sram";
++			reg = <0xfffc0000 0x10000>;
++		};
++
++		uart0: serial@e0000000 {
++			compatible = "xlnx,xuartps", "cdns,uart-r1p8";
++			status = "disabled";
++			clocks = <&clkc 0x17 &clkc 0x28>;
++			clock-names = "uart_clk", "pclk";
++			reg = <0xe0000000 0x1000>;
++			interrupts = <0x0 0x1b 0x4>;
++		};
++
++		uart1: serial@e0001000 {
++			compatible = "xlnx,xuartps", "cdns,uart-r1p8";
++			status = "okay";
++			clocks = <&clkc 0x18 &clkc 0x29>;
++			clock-names = "uart_clk", "pclk";
++			reg = <0xe0001000 0x1000>;
++			interrupts = <0x0 0x32 0x4>;
++			cts-override;
++			device_type = "serial";
++			port-number = <0x0>;
++		};
++
++		spi0: spi@e0006000 {
++			compatible = "xlnx,zynq-spi-r1p6";
++			reg = <0xe0006000 0x1000>;
++			status = "okay";
++			interrupt-parent = <&intc>;
++			interrupts = <0x0 0x1a 0x4>;
++			clocks = <&clkc 0x19 &clkc 0x22>;
++			clock-names = "ref_clk", "pclk";
++			#address-cells = <0x1>;
++			#size-cells = <0x0>;
++			is-decoded-cs = <0x0>;
++			num-cs = <0x1>;
++
++			spidev@0 {
++				compatible = "rohm,dh2228fv";
++				spi-max-frequency = <0x7a1200>;
++				reg = <0x0>;
++			};
++		};
++
++		spi1: spi@e0007000 {
++			compatible = "xlnx,zynq-spi-r1p6";
++			reg = <0xe0007000 0x1000>;
++			status = "disabled";
++			interrupt-parent = <&intc>;
++			interrupts = <0x0 0x31 0x4>;
++			clocks = <&clkc 0x1a &clkc 0x23>;
++			clock-names = "ref_clk", "pclk";
++			#address-cells = <0x1>;
++			#size-cells = <0x0>;
++		};
++
++		qspi: spi@e000d000 {
++			clock-names = "ref_clk", "pclk";
++			clocks = <&clkc 0xa &clkc 0x2b>;
++			compatible = "xlnx,zynq-qspi-1.0";
++			status = "disabled";
++			interrupt-parent = <&intc>;
++			interrupts = <0x0 0x13 0x4>;
++			reg = <0xe000d000 0x1000>;
++			#address-cells = <0x1>;
++			#size-cells = <0x0>;
++		};
++
++		gem0: ethernet@e000b000 {
++			compatible = "xlnx,zynq-gem", "cdns,zynq-gem", "cdns,gem";
++			reg = <0xe000b000 0x1000>;
++			status = "okay";
++			interrupts = <0x0 0x16 0x4>;
++			clocks = <&clkc 0x1e &clkc 0x1e &clkc 0xd>;
++			clock-names = "pclk", "hclk", "tx_clk";
++			#address-cells = <0x1>;
++			#size-cells = <0x0>;
++			phy-mode = "rgmii-id";
++			xlnx,ptp-enet-clock = <0x69f6bcb>;
++			local-mac-address = [00 0a 35 00 1e 53];
++		};
++
++		gem1: ethernet@e000c000 {
++			compatible = "xlnx,zynq-gem", "cdns,zynq-gem", "cdns,gem";
++			reg = <0xe000c000 0x1000>;
++			status = "disabled";
++			interrupts = <0x0 0x2d 0x4>;
++			clocks = <&clkc 0x1f &clkc 0x1f &clkc 0xe>;
++			clock-names = "pclk", "hclk", "tx_clk";
++			#address-cells = <0x1>;
++			#size-cells = <0x0>;
++		};
++
++		smcc: memory-controller@e000e000 {
++			compatible = "arm,pl353-smc-r2p1", "arm,primecell";
++			reg = <0xe000e000 0x1000>;
++			status = "okay";
++			clock-names = "memclk", "apb_pclk";
++			clocks = <&clkc 0x0b &clkc 0x2c>;
++			ranges = <0x00 0x00 0xe1000000 0x1000000 0x01 0x00 0xe2000000 0x2000000 0x02 0x00 0xe4000000 0x2000000>;
++			#address-cells = <0x02>;
++			#size-cells = <0x01>;
++			interrupt-parent = <&intc>;
++			interrupts = <0x00 0x12 0x04>;
++
++			nfc0: nand-controller@0,0 {
++				compatible = "arm,pl353-nand-r2p1";
++				reg = <0x00 0x00 0x1000000>;
++				status = "okay";
++				#address-cells = <0x01>;
++				#size-cells = <0x00>;
++
++				nand@0 {
++					reg = <0x00>;
++					arm,nand-cycle-t0 = <0x02>;
++					arm,nand-cycle-t1 = <0x02>;
++					arm,nand-cycle-t2 = <0x00>;
++					arm,nand-cycle-t3 = <0x01>;
++					arm,nand-cycle-t4 = <0x01>;
++					arm,nand-cycle-t5 = <0x01>;
++					arm,nand-cycle-t6 = <0x02>;
++					nand-bus-width = <0x08>;
++					status = "okay";
++
++					nand-ecc-mode = "on-die";
++					nand-on-flash-bbt;
++
++					/* Разделы NAND-флеша */
++					partitions {
++						compatible = "fixed-partitions";
++						#address-cells = <1>;
++						#size-cells = <1>;
++
++						/* 0) boot: 512 KiB (0x80000) */
++						partition@0 {
++							label = "boot";
++							reg = <0x00000000 0x00080000>;
++						};
++						/* 1) uboot: 2560 KiB (0x280000) */
++						partition@80000 {
++							label = "uboot";
++							reg = <0x00080000 0x00280000>;
++						};
++						/* 2) fpga: 4 MiB (0x400000) */
++						partition@300000 {
++							label = "fpga";
++							reg = <0x00300000 0x00400000>;
++						};
++						/* 3) uboot_env: 512 KiB (0x80000) */
++						partition@700000 {
++							label = "uboot_env";
++							reg = <0x00700000 0x00080000>;
++						};
++						/* 4) kernel: 10 MiB (0xA00000) */
++						partition@780000 {
++							label = "kernel";
++							reg = <0x00780000 0x00A00000>;
++						};
++						/* 5) rootfs: всё оставшееся пространство */
++						partition@1180000 {
++							label = "rootfs";
++							reg = <0x01180000 0x0EE80000>; /* size = 0xEE80000 (238.5 MiB) */
++						};
++					};
++				};
++
++			};
++
++			nor0: flash@1,0 {
++				status = "disabled";
++				compatible = "cfi-flash";
++				reg = <0x01 0x00 0x2000000>;
++			};
++		};
++
++		sdhci0: mmc@e0100000 {
++			compatible = "arasan,sdhci-8.9a";
++			status = "okay";
++			clock-names = "clk_xin", "clk_ahb";
++			clocks = <&clkc 0x15 &clkc 0x20>;
++			interrupt-parent = <&intc>;
++			interrupts = <0x0 0x18 0x4>;
++			reg = <0xe0100000 0x1000>;
++			xlnx,has-cd = <0x1>;
++			xlnx,has-power = <0x0>;
++			xlnx,has-wp = <0x0>;
++		};
++
++		sdhci1: mmc@e0101000 {
++			compatible = "arasan,sdhci-8.9a";
++			status = "disabled";
++			clock-names = "clk_xin", "clk_ahb";
++			clocks = <&clkc 0x16 &clkc 0x21>;
++			interrupt-parent = <&intc>;
++			interrupts = <0x0 0x2f 0x4>;
++			reg = <0xe0101000 0x1000>;
++		};
++
++		slcr: slcr@f8000000 {
++			u-boot,dm-pre-reloc;
++			#address-cells = <0x1>;
++			#size-cells = <0x1>;
++			compatible = "xlnx,zynq-slcr", "syscon", "simple-mfd";
++			reg = <0xf8000000 0x1000>;
++			ranges;
++
++			clkc: clkc@100 {
++				u-boot,dm-pre-reloc;
++				#clock-cells = <0x1>;
++				compatible = "xlnx,ps7-clkc";
++				fclk-enable = <0x1>;
++				clock-output-names = "armpll", "ddrpll", "iopll", "cpu_6or4x", "cpu_3or2x", "cpu_2x", "cpu_1x", "ddr2x", "ddr3x", "dci", "lqspi", "smc", "pcap", "gem0", "gem1", "fclk0", "fclk1", "fclk2", "fclk3", "can0", "can1", "sdio0", "sdio1", "uart0", "uart1", "spi0", "spi1", "dma", "usb0_aper", "usb1_aper", "gem0_aper", "gem1_aper", "sdio0_aper", "sdio1_aper", "spi0_aper", "spi1_aper", "can0_aper", "can1_aper", "i2c0_aper", "i2c1_aper", "uart0_aper", "uart1_aper", "gpio_aper", "lqspi_aper", "smc_aper", "swdt", "dbg_trc", "dbg_apb";
++				reg = <0x100 0x100>;
++				ps-clk-frequency = <0x1fca055>;
++			};
++
++			rstc: rstc@200 {
++				compatible = "xlnx,zynq-reset";
++				reg = <0x200 0x48>;
++				#reset-cells = <0x1>;
++				syscon = <&slcr>;
++			};
++
++			pinctrl0: pinctrl@700 {
++				compatible = "xlnx,pinctrl-zynq";
++				reg = <0x700 0x200>;
++				syscon = <&slcr>;
++			};
++		};
++
++		dmac_s: dmac@f8003000 {
++			compatible = "arm,pl330", "arm,primecell";
++			reg = <0xf8003000 0x1000>;
++			interrupt-parent = <&intc>;
++			interrupt-names = "abort", "dma0", "dma1", "dma2", "dma3", "dma4", "dma5", "dma6", "dma7";
++			interrupts = <0x0 0xd 0x4 0x0 0xe 0x4 0x0 0xf 0x4 0x0 0x10 0x4 0x0 0x11 0x4 0x0 0x28 0x4 0x0 0x29 0x4 0x0 0x2a 0x4 0x0 0x2b 0x4>;
++			#dma-cells = <0x1>;
++			#dma-channels = <0x8>;
++			#dma-requests = <0x4>;
++			clocks = <&clkc 0x1b>;
++			clock-names = "apb_pclk";
++		};
++
++		devcfg: devcfg@f8007000 {
++			compatible = "xlnx,zynq-devcfg-1.0";
++			interrupt-parent = <&intc>;
++			interrupts = <0x0 0x8 0x4>;
++			reg = <0xf8007000 0x100>;
++			clocks = <&clkc 0xc &clkc 0xf &clkc 0x10 &clkc 0x11 &clkc 0x12>;
++			clock-names = "ref_clk", "fclk0", "fclk1", "fclk2", "fclk3";
++			syscon = <&slcr>;
++		};
++
++		efuse: efuse@f800d000 {
++			compatible = "xlnx,zynq-efuse";
++			reg = <0xf800d000 0x20>;
++		};
++
++		global_timer: timer@f8f00200 {
++			compatible = "arm,cortex-a9-global-timer";
++			reg = <0xf8f00200 0x20>;
++			interrupts = <0x1 0xb 0x301>;
++			interrupt-parent = <&intc>;
++			clocks = <&clkc 0x4>;
++		};
++
++		ttc0: timer@f8001000 {
++			interrupt-parent = <&intc>;
++			interrupts = <0x0 0xa 0x4 0x0 0xb 0x4 0x0 0xc 0x4>;
++			compatible = "cdns,ttc";
++			clocks = <&clkc 0x6>;
++			reg = <0xf8001000 0x1000>;
++		};
++
++		ttc1: timer@f8002000 {
++			interrupt-parent = <&intc>;
++			interrupts = <0x0 0x25 0x4 0x0 0x26 0x4 0x0 0x27 0x4>;
++			compatible = "cdns,ttc";
++			clocks = <&clkc 0x6>;
++			reg = <0xf8002000 0x1000>;
++		};
++
++		scutimer: timer@f8f00600 {
++			interrupt-parent = <&intc>;
++			interrupts = <0x1 0xd 0x301>;
++			compatible = "arm,cortex-a9-twd-timer";
++			reg = <0xf8f00600 0x20>;
++			clocks = <&clkc 0x4>;
++		};
++
++		usb0: usb@e0002000 {
++			compatible = "xlnx,zynq-usb-2.20a", "chipidea,usb2";
++			status = "disabled";
++			clocks = <&clkc 0x1c>;
++			interrupt-parent = <&intc>;
++			interrupts = <0x0 0x15 0x4>;
++			reg = <0xe0002000 0x1000>;
++			phy_type = "ulpi";
++		};
++
++		usb1: usb@e0003000 {
++			compatible = "xlnx,zynq-usb-2.20a", "chipidea,usb2";
++			status = "disabled";
++			clocks = <&clkc 0x1d>;
++			interrupt-parent = <&intc>;
++			interrupts = <0x0 0x2c 0x4>;
++			reg = <0xe0003000 0x1000>;
++			phy_type = "ulpi";
++		};
++
++		watchdog0: watchdog@f8005000 {
++			clocks = <&clkc 0x2d>;
++			compatible = "cdns,wdt-r1p2";
++			interrupt-parent = <&intc>;
++			interrupts = <0x0 0x9 0x1>;
++			reg = <0xf8005000 0x1000>;
++			timeout-sec = <0xa>;
++		};
++
++		etb@f8801000 {
++			compatible = "arm,coresight-etb10", "arm,primecell";
++			reg = <0xf8801000 0x1000>;
++			clocks = <&clkc 0x1b &clkc 0x2e &clkc 0x2f>;
++			clock-names = "apb_pclk", "dbg_trc", "dbg_apb";
++
++			in-ports {
++
++				port {
++
++					etb_in_port: endpoint {
++						remote-endpoint = <&replicator_out_port1>;
++					};
++				};
++			};
++		};
++
++		tpiu@f8803000 {
++			compatible = "arm,coresight-tpiu", "arm,primecell";
++			reg = <0xf8803000 0x1000>;
++			clocks = <&clkc 0x1b &clkc 0x2e &clkc 0x2f>;
++			clock-names = "apb_pclk", "dbg_trc", "dbg_apb";
++
++			in-ports {
++
++				port {
++
++					tpiu_in_port: endpoint {
++						remote-endpoint = <&replicator_out_port0>;
++					};
++				};
++			};
++		};
++
++		funnel@f8804000 {
++			compatible = "arm,coresight-static-funnel", "arm,primecell";
++			reg = <0xf8804000 0x1000>;
++			clocks = <&clkc 0x1b &clkc 0x2e &clkc 0x2f>;
++			clock-names = "apb_pclk", "dbg_trc", "dbg_apb";
++
++			out-ports {
++
++				port {
++
++					funnel_out_port: endpoint {
++						remote-endpoint = <&replicator_in_port0>;
++					};
++				};
++			};
++
++			in-ports {
++				#address-cells = <0x1>;
++				#size-cells = <0x0>;
++
++				port@0 {
++					reg = <0x0>;
++
++					funnel0_in_port0: endpoint {
++						remote-endpoint = <&ptm0_out_port>;
++					};
++				};
++
++				port@1 {
++					reg = <0x1>;
++
++					funnel0_in_port1: endpoint {
++						remote-endpoint = <&ptm1_out_port>;
++					};
++				};
++
++				port@2 {
++					reg = <0x2>;
++
++					funnel0_in_port2: endpoint {
++					};
++				};
++			};
++		};
++
++		ptm@f889c000 {
++			compatible = "arm,coresight-etm3x", "arm,primecell";
++			reg = <0xf889c000 0x1000>;
++			clocks = <&clkc 0x1b &clkc 0x2e &clkc 0x2f>;
++			clock-names = "apb_pclk", "dbg_trc", "dbg_apb";
++			cpu = <&cpu0>;
++
++			out-ports {
++
++				port {
++
++					ptm0_out_port: endpoint {
++						remote-endpoint = <&funnel0_in_port0>;
++					};
++				};
++			};
++		};
++
++		ptm@f889d000 {
++			compatible = "arm,coresight-etm3x", "arm,primecell";
++			reg = <0xf889d000 0x1000>;
++			clocks = <&clkc 0x1b &clkc 0x2e &clkc 0x2f>;
++			clock-names = "apb_pclk", "dbg_trc", "dbg_apb";
++			cpu = <&cpu1>;
++
++			out-ports {
++
++				port {
++
++					ptm1_out_port: endpoint {
++						remote-endpoint = <&funnel0_in_port1>;
++					};
++				};
++			};
++		};
++
++		nes_gamepad@41200000 {
++			compatible = "xlnx,axi-gpio-nes-gamepad";
++			reg = <0x41200000 0x1000>;
++			status = "okay";
++		};
++
++		/* Наш USB HID Host IP-блок */
++		usb_hid: usb-hid-host@43c40000 {
++			compatible = "nand2mario,usb-hid-host";
++			reg = <0x43c40000 0x10000>;
++			/* Мы используем опрос (polling), поэтому прерывания не нужны */
++			status = "okay";
++		};
++
++		ir_receiver: ir_receiver@43c50000 {
++			compatible = "xlnx,ir-receiver-axi-1.0";
++			reg = <0x43c50000 0x20>; /* Базовый адрес из Vivado Address Editor */
++
++			/*
++			* Прерывание: 0 = SPI (Shared Peripheral Interrupt),
++			* 29 = номер прерывания IRQ_F2P (в Vivado это обычно IRQ 61 минус 32 = 29),
++			* 4 = Level-sensitive High
++			*/
++			interrupts = <0 29 4>;
++			interrupt-parent = <&intc>;
++
++			clocks = <&clkc 15>; /* Клок, питающий AXI (обычно FCLK_CLK0) */
++
++			/* Настройки для драйвера */
++			xlnx,hw-nec-decoder;     /* Включаем аппаратный NEC декодер */
++		};
++
++		/* Устройство 1: Тюнер V4L2 */
++		fm_tuner: fm-radio@43c60000 {
++			compatible = "xlnx,zynq-fm-radio-1.0";
++			reg = <0x43c60000 0x1000>; /* 4 КБ адресного пространства */
++		};
++
++		/* Устройство 2: Звук ALSA */
++		axi_sdr_fm_0: axi-sdr-fm@43c70000 {
++			compatible = "custom,axi-sdr-fm";
++			reg = <0x43c70000 0x1000>; /* 4 КБ адресного пространства */
++			/* interrupt-parent = <&intc>; */
++			/* interrupts = <0 61 1>;          SPI #61, edge-rising */
++		};
++
++		axi_i2s_adi: axi_i2s_adi@43c00000 {
++			compatible = "adi,axi-i2s-1.00.a";     /* используется: по этой строке OF находит и биндит sound/soc/adi/axi-i2s.c */
++			reg = <0x43c00000 0x10000>;            /* используется: MMIO-база под regmap + адреса TX/RX FIFO для DMA */
++			clock-names = "axi", "ref";            /* используется: имена под devm_clk_get(dev, "axi") и devm_clk_get(dev, "ref") */
++			clocks = <&clkc 15>, <&audio_clock>;   /* используется: axi тактирует регистры ядра, ref — по нему считается делитель BCLK и таблица допустимых частот. fclk0 = 100 МГц, clk_wiz = 12.288 МГц */
++
++			/* Дальше — параметры самого IP-ядра из Vivado (s00_axi generics),
++			 * которые device-tree-xlnx выгрузил в dts автоматически при генерации.
++			 * Из всего узла драйвер axi-i2s.c реально разбирает только
++			 * compatible/reg/clocks/clock-names/dma-names/#sound-dai-cells/status —
++			 * ни одно свойство "xlnx,*" ниже в его коде не встречается (проверено
++			 * по исходнику sound/soc/adi/axi-i2s.c). Оставлены как документация
++			 * реальной конфигурации ядра в Vivado, поведение Linux/ALSA не меняют. */
++			xlnx,bclk-pol = <0x0>;              /* декоративно: полярность BCLK — решается в HDL при синтезе, драйвер не читает */
++			xlnx,dma-type = <0x1>;              /* декоративно: тип DMA-интерфейса ядра, драйвер не читает */
++			xlnx,has-rx = <0x1>;                /* декоративно: rx реально включается по dma-names ниже, а не по этому флагу */
++			xlnx,has-tx = <0x1>;                /* декоративно: tx реально включается по dma-names ниже, а не по этому флагу */
++			xlnx,lrclk-pol = <0x0>;             /* декоративно: полярность LRCLK — решается в HDL при синтезе, драйвер не читает */
++			xlnx,num-ch = <0x1>;                /* декоративно: драйвер жёстко ставит 2 канала (стерео) независимо от значения */
++			xlnx,s00-axi-addr-width = <0x10>;   /* декоративно: ширина адреса конфигурационной AXI-Lite шины, не аудио-тракта */
++			xlnx,s00-axi-data-width = <0x20>;   /* декоративно: ширина данных той же конфигурационной шины, не аудио-тракта */
++			xlnx,slot-width = <0x18>;           /* декоративно (24 бита): драйвер жёстко использует 64-битный фрейм (AXI_I2S_BITS_PER_FRAME=64), это значение не читает — см. отдельную 32-битную версию файла */
++
++			/* TX = запрос 0, RX = запрос 1. Направления определяет dma-names ниже
++			 * (см. axi_i2s_parse_of), а не xlnx,has-rx/has-tx выше — ПРОВЕРЬТЕ
++			 * номер запроса 1 по Vivado Address Editor / DMA request map. */
++			dmas = <&dmac_s 0>, <&dmac_s 1>;    /* используется: общим dmaengine-PCM кодом ASoC (не самим axi-i2s.c) для получения DMA-каналов */
++			dma-names = "tx", "rx";             /* используется: единственное свойство, которое реально парсит axi_i2s_parse_of() — им задаются has_capture/has_playback, а через них каналы, форматы и dma_data */
++			#sound-dai-cells = <0x0>;           /* используется: по этому свойству ASoC/OF резолвит sound-dai = <&axi_i2s_adi> из узла sound */
++			status = "okay";                    /* используется: OF-core решает по нему, пробовать ли платформенное устройство вообще */
++		};
++
++		/* Видеовыходы VGA, каждый со своим кадровым буфером в reserved-memory */
++		vga_0: vga@43c10000 {
++			compatible = "xlnx,vga-1.0", "xlnx,VGA";  // match table in driver
++			reg = <0x43c10000 0x1000>;                // config register space
++
++			memory-region = <&vga0_fb>; // Ссылка на буфер
++
++			// Optional reset GPIO (active LOW, as defined in the IP's reset polarity)
++			// If the reset signal is connected to a GPIO, include this property.
++			// The driver will hold it LOW to reset, then release to HIGH.
++			//reset-gpios = <&gpio0 55 0>;  // example: Xilinx GPIO, bit 55, active LOW (flag 0)
++
++			// No interrupts needed; the driver polls error register if desired.
++
++			// No clocks needed explicitly because the IP uses axi_aclk from the system,
++			// which is already managed by the PS-PL interface and is always on.
++
++			// If you have a specific clock input (e.g., from a clocking wizard), add:
++			// clocks = <&clk 71>;
++			// clock-names = "axi_aclk";
++
++			status = "okay";
++		};
++
++		vga_1: vga@43c11000 {
++			compatible = "xlnx,vga-1.0", "xlnx,VGA";  // match table in driver
++			reg = <0x43c11000 0x1000>;                // config register space
++
++			memory-region = <&vga1_fb>; // Ссылка на буфер
++
++			// Optional reset GPIO (active LOW, as defined in the IP's reset polarity)
++			// If the reset signal is connected to a GPIO, include this property.
++			// The driver will hold it LOW to reset, then release to HIGH.
++			//reset-gpios = <&gpio0 55 0>;  // example: Xilinx GPIO, bit 55, active LOW (flag 0)
++
++			// No interrupts needed; the driver polls error register if desired.
++
++			// No clocks needed explicitly because the IP uses axi_aclk from the system,
++			// which is already managed by the PS-PL interface and is always on.
++
++			// If you have a specific clock input (e.g., from a clocking wizard), add:
++			// clocks = <&clk 71>;
++			// clock-names = "axi_aclk";
++
++			status = "disabled";
++		};
++	};
++
++	/* Опорный тактовый генератор для audio CODEC (clk_wiz в PL), вне simple-bus axi,
++	 * т.к. это логический источник тактов без регистрового адреса */
++	audio_clock: audio_clock {
++		compatible = "fixed-clock";
++		#clock-cells = <0>;
++		clock-frequency = <12288000>;
++	};
++
++	chosen {
++		bootargs = "console=ttyPS0,115200 clk_ignore_unused earlycon root=/dev/mmcblk0p2 rw rootwait";
++		stdout-path = "serial0:115200n8";
++	};
++
++	aliases {
++		ethernet0 = "/axi/ethernet@e000b000";
++		serial0 = "/axi/serial@e0001000";
++		spi0 = "/axi/spi@e0006000";
++	};
++
++	memory@0 {
++		device_type = "memory";
++		reg = <0x0 0x20000000>;
++	};
++
++	reserved-memory {
++		#address-cells = <0x1>;
++		#size-cells = <0x1>;
++		ranges;
++
++		vga0_fb: buffer@1f400000 {
++			no-map;
++			reg = <0x1f400000 0x200000>;
++		};
++
++		vga1_fb: buffer@1f600000 {
++			no-map;
++			reg = <0x1f600000 0x200000>;
++		};
++	};
++
++	reserved-driver {
++		compatible = "xlnx,reserved-memory";
++		memory-region = <&vga0_fb &vga1_fb>;
++	};
++
++	codec: playback-codec {
++		compatible = "linux,spdif-dit";    /* используется: биндит sound/soc/codecs/spdif_transmitter.c по of_device_id */
++		#sound-dai-cells = <0x0>;          /* используется: по нему ASoC/OF резолвит sound-dai = <&codec> ниже */
++	};
++
++	/* Приёмная сторона: даёт ALSA-устройство захвата для RX-канала axi_i2s_adi,
++	 * так же как playback-codec выше — для TX. Без реального кодека,
++	 * т.к. формат данных на RX уже готовый PCM (см. driver: linux,spdif-dir /
++	 * snd_soc_spdif_rx). */
++	capture_codec: capture-codec {
++		compatible = "linux,spdif-dir";    /* используется: биндит sound/soc/codecs/spdif_receiver.c по of_device_id */
++		#sound-dai-cells = <0x0>;          /* используется: по нему ASoC/OF резолвит sound-dai = <&capture_codec> ниже */
++	};
++
++	/* compatible = "simple-audio-card" биндит sound/soc/generic/simple-card.c —
++	 * он сшивает cpu-DAI (axi_i2s_adi) и codec-DAI (playback-codec/capture-codec)
++	 * в одну ALSA-карту. Ниже отмечено, что драйвер реально разбирает, а что
++	 * нужно только для корректного/безворнингового DT, а не самому драйверу. */
++	sound {
++		compatible = "simple-audio-card";
++		#address-cells = <1>;              /* НЕ читается simple-card.c: порядок dai-link@N берётся из порядка узлов в dts, а не из reg. Нужно только чтобы reg = <0>/<1> ниже не ловили unit_address_vs_reg warning от dtc */
++		#size-cells = <0>;                 /* см. выше */
++		simple-audio-card,name = "audio";              /* используется: simple_util_parse_card_name() — имя карты в aplay -l / arecord -l */
++		simple-audio-card,widgets =                    /* используется: simple_util_parse_widgets() — объявляет DAPM-виджеты */
++			"Line", "Line Out Jack",
++			"Headphone", "Out Jack";
++		simple-audio-card,routing =                    /* используется: simple_util_parse_routing() — соединяет виджеты выше между собой */
++			"Out Jack", "spdif-out";
++		simple-audio-card,format = "i2s";              /* карточное значение по умолчанию; сейчас НЕ действует ни на один линк — оба dai-link@N ниже задают свой format и перекрывают это */
++
++		simple-audio-card,mclk-fs = <256>; /* используется: реально применяется к обоим dai-link@N ниже, т.к. ни один из них не задаёт mclk-fs у себя. 48 кГц */
++
++		/* Playback: TX-канал axi_i2s_adi -> S/PDIF выход */
++		simple-audio-card,dai-link@0 {
++			reg = <0>;              /* НЕ читается драйвером напрямую (см. #address-cells выше) — только для корректности DT */
++			format = "i2s";         /* используется: активный формат для ЭТОГО линка, перекрывает simple-audio-card,format выше */
++
++			cpu {
++				sound-dai = <&axi_i2s_adi>;    /* Ссылка на axi_i2s_adi */
++			};
++
++			codec {
++				sound-dai = <&codec>;          /* Ссылка на playback-codec */
++			};
++		};
++
++		/* Capture: RX-канал axi_i2s_adi -> видим в ALSA как устройство записи */
++		simple-audio-card,dai-link@1 {
++			reg = <1>;               /* НЕ читается драйвером напрямую — только для корректности DT */
++			format = "i2s";          /* используется: активный формат для этого линка */
++
++			cpu {
++				sound-dai = <&axi_i2s_adi>;    /* Тот же физический DAI, второй линк */
++			};
++
++			codec {
++				sound-dai = <&capture_codec>;  /* Ссылка на capture-codec */
++			};
++		};
++	};
++};
