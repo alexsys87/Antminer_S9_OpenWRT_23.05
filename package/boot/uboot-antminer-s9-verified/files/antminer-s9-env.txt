@@ -1,0 +1,13 @@
+pxefile_addr_r=0x2000000
+scriptaddr=0x3000000
+kernel_addr_r=0x2000000
+fdt_high=0xefff000
+initrd_high=0xefff000
+devnum=0
+wdstop=mw f8005000 ABC000
+mtdids=nand0=nand0
+mtdparts=mtdparts=nand0:512k(boot),2560k(uboot),4m(fpga),512k(uboot_env),10m(kernel),-(rootfs)
+bootargs=console=ttyPS0,115200 ubi.mtd=5 root=ubi0:rootfs rootfstype=ubifs rootwait earlyprintk ${mtdparts}
+nandboot=nand read 0x2000000 fpga; unzip 0x2000000 0x2100000; fpga loadb 0 0x2100000 ${filesize}; nand read 0x2000000 kernel; bootm 0x2000000
+loaduenv=fatload mmc ${devnum}:1 ${scriptaddr} uEnv.txt
+bootcmd=if run loaduenv; then echo Importing uEnv.txt from SD card ...; env import -t ${scriptaddr} ${filesize}; fi; if test -n "${uenvcmd}"; then echo Running uenvcmd from uEnv.txt ...; run uenvcmd; fi; echo Booting from NAND ...; run nandboot
